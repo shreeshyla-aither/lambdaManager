@@ -12,7 +12,7 @@ exports.handler = async function (event) {
 
       Subject: { Data: "Test Email" },
     },
-    ReplyToAddresses: ["12345@cforia.aithertechnology.com"],
+    ReplyToAddresses: ["123456@cforia.aithertechnology.com"],
     ReturnPath: "return_12345@cforia.aithertechnology.com",
     Source: "noreply@aithertechnology.com",
   };
