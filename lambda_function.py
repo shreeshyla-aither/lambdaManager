@@ -13,7 +13,6 @@ import subprocess
 import shutil
 from botocore.exceptions import ClientError
 
-
 def lambda_handler(event, context):
     
     print("Initialising variables")
