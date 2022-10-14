@@ -107,7 +107,7 @@ def lambda_handler(event, context):
             
             print("Function is updated!")
             
-            response = {'message': 'Lambda function: " + function_name + " is deployed'}
+            response = {'message': 'Lambda function: ' + function_name + ' is deployed'}
             print(response)
             
         else:
