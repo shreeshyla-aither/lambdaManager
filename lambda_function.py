@@ -65,9 +65,6 @@ def lambda_handler(event, context):
     # Check-out lambda function
     elif (event["queryStringParameters"]['action'] == 'checkout'):
         try:
-            functionDetails = client.get_function(
-                FunctionName=event["queryStringParameters"]['function_name'],
-            )
                     
             os.system('rm -rf ' + path)
             os.mkdir(path)
