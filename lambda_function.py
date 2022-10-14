@@ -81,7 +81,7 @@ def lambda_handler(event, context):
             pushMessage = subprocess.getoutput(push)
             
             response = {'commit': commitMessage, 'push': pushMessage}
-            print("response" + response)
+            print(response)
             
             
         # Check-out lambda function
@@ -108,11 +108,11 @@ def lambda_handler(event, context):
             print("Function is updated!")
             
             response = {'message': 'Lambda function: " + function_name + " is deployed'}
-            print("response" + response)
+            print(response)
             
         else:
             response = {'status': 'failure', 'error': action + " is not a valid action"}
-            print("response" + response)
+            print(response)
     except ClientError as e:
         print(e.response)
         response = {'status': 'failure', 'error': e.response['Error']['Message']}
