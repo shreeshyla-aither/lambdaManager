@@ -3,7 +3,7 @@ var ses = new aws.SES({ region: "us-east-1" });
 exports.handler = async function (event) {
   var params = {
     Destination: {
-      ToAddresses: ["nick@aithertechnology.com"],
+      ToAddresses: ["shreeshyla@aithertechnology.com"],
     },
     Message: {
       Body: {
