@@ -32,36 +32,62 @@ def lambda_handler(event, context):
     # Check-in lambda function 
     if (event["queryStringParameters"]['action'] == 'checkin'):
         try:
-            functions = client.list_functions()
-            
+            # Get the function details
             functionDetails = client.get_function(
                 FunctionName=event["queryStringParameters"]['function_name'],
             )
             
-            if ('Code' in functionDetails):
-                downloadSource(functionDetails['Code']['Location'])
-                    
-                os.system('rm -rf ' + path)
-                os.mkdir(path)
-                os.chdir(path) # Specifying the path where the cloned project needs to be copied
-                os.system(clone) # Cloning
+            # Download the function content 
+            downloadSource(functionDetails['Code']['Location'])
                 
-                with zipfile.ZipFile("/tmp/sample.zip", 'r') as zip_ref:
-                    zip_ref.extractall(path)
+            os.system('rm -rf ' + path)
+            os.mkdir(path)
+            os.chdir(path) # Specifying the path where the cloned project needs to be copied
+            os.system(clone) # Cloning
+            
+            with zipfile.ZipFile("/tmp/sample.zip", 'r') as zip_ref:
+                zip_ref.extractall(path)
+            
+            files = os.listdir("/tmp/")
+                        
+            for filename in files:
+                print(filename)
                 
-                files = os.listdir("/tmp/")
-                            
-                for filename in files:
-                    print(filename)
+            os.system(accessemail)
+            os.system(accessusername)
+            os.system(add)
+            commitMessage = subprocess.getoutput(commit)
+            pushMessage = subprocess.getoutput(push)
+            response = {'commit': commitMessage, 'push': pushMessage}
+        except ClientError as e:
+            print(e.response)
+            response = {'error': e.response['Error']['Message']}
+    # Check-out lambda function
+    elif (event["queryStringParameters"]['action'] == 'checkout'):
+        try:
+            functionDetails = client.get_function(
+                FunctionName=event["queryStringParameters"]['function_name'],
+            )
                     
-                os.system(accessemail)
-                os.system(accessusername)
-                os.system(add)
-                commitMessage = subprocess.getoutput(commit)
-                pushMessage = subprocess.getoutput(push)
-                response = {'commit': commitMessage, 'push': pushMessage}
-            else:
-                response = {'error': 'Function ' + event["queryStringParameters"]['function_name'] + ' does not exist'}
+            os.system('rm -rf ' + path)
+            os.mkdir(path)
+            os.chdir(path) # Specifying the path where the cloned project needs to be copied
+            os.system(clone) # Cloning
+            
+            with zipfile.ZipFile("/tmp/sample.zip", 'r') as zip_ref:
+                zip_ref.extractall(path)
+            
+            files = os.listdir("/tmp/")
+                        
+            for filename in files:
+                print(filename)
+                
+            os.system(accessemail)
+            os.system(accessusername)
+            os.system(add)
+            commitMessage = subprocess.getoutput(commit)
+            pushMessage = subprocess.getoutput(push)
+            response = {'commit': commitMessage, 'push': pushMessage}
         except ClientError as e:
             print(e.response)
             response = {'error': e.response['Error']['Message']}
