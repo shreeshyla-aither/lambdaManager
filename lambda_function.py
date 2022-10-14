@@ -1,4 +1,5 @@
 import json
+import io
 import os
 import boto3
 import random
@@ -7,11 +8,25 @@ import urllib.request as urllib2
 import urllib
 import math
 import zipfile
+from zipfile import ZipFile
 import subprocess
+import shutil
 from botocore.exceptions import ClientError
 
+
 def lambda_handler(event, context):
-    # Initialise the required variables
+    
+    print("Initialising variables")
+    
+    # initialise input params
+    action = event["queryStringParameters"]['action']
+    function_name = event["queryStringParameters"]['function_name']
+    github_repo_path = event["queryStringParameters"]['github_repo_path']
+    github_access_email = event["queryStringParameters"]['github_access_email']
+    github_access_name = event["queryStringParameters"]['github_access_name']
+    github_secret = event["queryStringParameters"]['github_secret']
+    
+    # Initialise boto agent
     client = boto3.client(
         'lambda',
         aws_access_key_id = event["queryStringParameters"]['aws_access_key_id'],
@@ -19,84 +34,101 @@ def lambda_handler(event, context):
         region_name = event["queryStringParameters"]['region_name'],
     )
     
+    # initialise git specific commands
     path  = "/tmp/project" 
-    repo = event["queryStringParameters"]['github_repo_path']
-    clone = "git clone https://"+ event["queryStringParameters"]['github_repo_path'] +" /tmp/project" 
-    accessemail = "git config user.email '" + event["queryStringParameters"]['github_access_email'] + "'"
-    accessusername = "git config user.name '" + event["queryStringParameters"]['github_access_name'] + "'"
+    repo = github_repo_path
+    clone = "git clone https://"+ github_repo_path +" /tmp/project" 
+    accessemail = "git config user.email '" + github_access_email + "'"
+    accessusername = "git config user.name '" + github_access_name + "'"
     add = "git add ."
     commit = "git commit . -m 'auto-commit'"
-    origin = "https://" + event["queryStringParameters"]['github_access_name'] + ":" + event["queryStringParameters"]['github_secret'] + "@" + repo
+    origin = "https://" + github_access_name + ":" + github_secret + "@" + repo
     push = "git push " + origin + " main"
     
-    # Check-in lambda function 
-    if (event["queryStringParameters"]['action'] == 'checkin'):
-        try:
+    try:
+        print("Executing action: " + action)
+        
+        # Check-in lambda function
+        if (action == 'checkin'):
+            print("Getting " + function_name + " function details...")
             # Get the function details
             functionDetails = client.get_function(
-                FunctionName=event["queryStringParameters"]['function_name'],
+                FunctionName = function_name,
             )
             
+            print("Downloading the function source...")
             # Download the function content 
             downloadSource(functionDetails['Code']['Location'])
                 
+            print("Cleaning up the path before cloning")
             os.system('rm -rf ' + path)
             os.mkdir(path)
             os.chdir(path) # Specifying the path where the cloned project needs to be copied
+            print("Cloning the repo...")
             os.system(clone) # Cloning
             
+            print("Extracting the downloaded source to the repo directory...")
+            # Extract the downloaded source to the repo directory
             with zipfile.ZipFile("/tmp/sample.zip", 'r') as zip_ref:
                 zip_ref.extractall(path)
-            
-            files = os.listdir("/tmp/")
-                        
-            for filename in files:
-                print(filename)
                 
+            print("Providing git access permission to the system")
             os.system(accessemail)
             os.system(accessusername)
             os.system(add)
+            print("Git commit and push...")
             commitMessage = subprocess.getoutput(commit)
             pushMessage = subprocess.getoutput(push)
+            
             response = {'commit': commitMessage, 'push': pushMessage}
-        except ClientError as e:
-            print(e.response)
-            response = {'error': e.response['Error']['Message']}
-    # Check-out lambda function
-    elif (event["queryStringParameters"]['action'] == 'checkout'):
-        try:
-                    
+            print("response" + response)
+            
+            
+        # Check-out lambda function
+        elif (action == 'checkout'):
+            print("Cleaning up the path before cloning the repo...")
             os.system('rm -rf ' + path)
             os.mkdir(path)
             os.chdir(path) # Specifying the path where the cloned project needs to be copied
+            print("Cloning the repository...")
             os.system(clone) # Cloning
             
-            with zipfile.ZipFile("/tmp/sample.zip", 'r') as zip_ref:
-                zip_ref.extractall(path)
+            print("Archiving the content of repository to a zip file...")
+            buf = io.BytesIO()
+            with ZipFile(buf, 'w') as z:
+                for full_path, archive_name in files_to_zip(path=path + "/"):
+                    z.write(full_path, archive_name)
             
-            files = os.listdir("/tmp/")
-                        
-            for filename in files:
-                print(filename)
-                
-            os.system(accessemail)
-            os.system(accessusername)
-            os.system(add)
-            commitMessage = subprocess.getoutput(commit)
-            pushMessage = subprocess.getoutput(push)
-            response = {'commit': commitMessage, 'push': pushMessage}
-        except ClientError as e:
-            print(e.response)
-            response = {'error': e.response['Error']['Message']}
-    else:
-        response = {'error': event["queryStringParameters"]['action'] + " is not a valid action"}
+            print("Deploying the lambda function with the new zip file...")
+            functionUpdate = client.update_function_code(
+                FunctionName = function_name,
+                ZipFile=buf.getvalue()
+            )
+            
+            print("Function is updated!")
+            
+            response = {'message': 'Lambda function: " + function_name + " is deployed'}
+            print("response" + response)
+            
+        else:
+            response = {'status': 'failure', 'error': action + " is not a valid action"}
+            print("response" + response)
+    except ClientError as e:
+        print(e.response)
+        response = {'status': 'failure', 'error': e.response['Error']['Message']}
 
     return {
         'statusCode': 200,
         'body': json.dumps(response)
     }
     
-    
+def files_to_zip(path):
+    for root, dirs, files in os.walk(path):
+        for f in files:
+            full_path = os.path.join(root, f)
+            archive_name = full_path[len(path) + len(os.sep) - 1:]
+            yield full_path, archive_name
+
 def downloadSource(url):
     urllib.request.urlretrieve(url, "/tmp/sample.zip")
 
