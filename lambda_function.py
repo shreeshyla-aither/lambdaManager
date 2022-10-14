@@ -17,6 +17,8 @@ def lambda_handler(event, context):
     
     print("Initialising variables")
     
+    print("one more")
+    
     # initialise input params
     action = event["queryStringParameters"]['action']
     function_name = event["queryStringParameters"]['function_name']
